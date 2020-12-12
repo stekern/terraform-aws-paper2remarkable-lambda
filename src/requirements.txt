@@ -1,0 +1,2 @@
+paper2remarkable==v0.8.2
+readabilipy==v0.2.0
