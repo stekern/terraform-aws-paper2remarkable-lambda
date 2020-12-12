@@ -41,7 +41,7 @@ def lambda_handler(event, context):
         *(["--blank"] if payload.get("blank", False) else []),
         *(["--center"] if payload.get("center", False) else []),
         *(["--right"] if payload.get("right", False) else []),
-        *(["--no-crop"] if payload.get("crop", True) else []),
+        *(["--no-crop"] if payload.get("disable_cropping", False) else []),
         *(
             ["--remarkable-path", payload["remarkable_path"]]
             if payload.get("remarkable_path", None)
