@@ -60,7 +60,8 @@ devicetoken: {rmapi_config['rmapi_device_token']}
     logger.debug("Stored rmapi credentials in '%s'", credentials_file)
     os.environ["RMAPI_CONFIG"] = credentials_file
 
-    successes = []
+    successes = {}
+    failures = {}
     for file in payload["inputs"]:
         # We get some weird errors at times:
         # `[Errno 2] No such file or directory`
@@ -75,9 +76,34 @@ devicetoken: {rmapi_config['rmapi_device_token']}
         out = subprocess.run(["p2r"] + args + [file], capture_output=True)
         logger.debug("paper2remarkable output %s", out)
         if out.returncode == 0:
-            successes.append(file)
+            successes[file] = out
         else:
+            failures[file] = out
             logger.warn("paper2remarkable command had non-zero exit")
     status_code = 200 if len(successes) == len(payload["inputs"]) else 500
+
+    # Publish message to SNS on failures
+    if len(failures) and os.environ.get("SNS_TOPIC_ARN", None):
+        sns = boto3.resource("sns")
+        sns_topic = sns.Topic(os.environ["SNS_TOPIC_ARN"])
+        messages = [
+            "\n".join(
+                [
+                    f"Input: {file}",
+                    "--- STDOUT ---",
+                    output.stdout.decode(),
+                    "",
+                    "--- STDERR ---",
+                    output.stderr.decode(),
+                    "",
+                ]
+            )
+            for file, output in failures.items()
+        ]
+        sns_topic.publish(
+            Subject=f"{os.environ.get('AWS_LAMBDA_FUNCTION_NAME', 'paper2remarkable-lambda')} failed 😥",
+            Message="\n\n".join(messages),
+        )
+
     response = {"statusCode": status_code}
     return response

@@ -28,3 +28,8 @@ variable "kms_alias_id" {
   description = "The ID of a KMS alias to use when encrypting SSM parameters."
   type        = string
 }
+
+variable "failure_notification_email" {
+  description = "An optional email to send notifications to if paper2remarkable fails to process one or more inputs."
+  default     = ""
+}

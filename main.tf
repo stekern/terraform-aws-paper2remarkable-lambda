@@ -30,6 +30,7 @@ resource "aws_lambda_function" "this" {
   environment {
     variables = {
       SSM_PARAMETER_NAME = aws_ssm_parameter.this.name
+      SNS_TOPIC_ARN      = var.failure_notification_email != "" ? aws_sns_topic.this[0].arn : ""
     }
   }
   timeout = var.lambda_timeout
@@ -39,6 +40,22 @@ resource "aws_lambda_function" "this" {
 resource "aws_lambda_function_event_invoke_config" "this" {
   function_name          = aws_lambda_function.this.function_name
   maximum_retry_attempts = 0
+}
+
+resource "null_resource" "email_subscribe" {
+  count = var.failure_notification_email != "" ? 1 : 0
+  triggers = {
+    email = var.failure_notification_email
+  }
+  provisioner "local-exec" {
+    command     = <<EOF
+aws sns subscribe \
+  --topic-arn "${aws_sns_topic.this[0].arn}" \
+  --protocol email \
+  --notification-endpoint "${var.failure_notification_email}"
+EOF
+    interpreter = ["sh", "-c"]
+  }
 }
 
 resource "aws_iam_role" "this" {
@@ -61,8 +78,18 @@ resource "aws_iam_role_policy" "ssm_to_lambda" {
   role   = aws_iam_role.this.id
 }
 
+resource "aws_iam_role_policy" "sns_to_lambda" {
+  count  = var.failure_notification_email != "" ? 1 : 0
+  policy = data.aws_iam_policy_document.sns_for_lambda[0].json
+  role   = aws_iam_role.this.id
+}
+
 resource "aws_cloudwatch_log_group" "this" {
   name              = "/aws/lambda/${aws_lambda_function.this.function_name}"
   retention_in_days = 14
   tags              = var.tags
+}
+
+resource "aws_sns_topic" "this" {
+  count = var.failure_notification_email != "" ? 1 : 0
 }

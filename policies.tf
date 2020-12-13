@@ -37,3 +37,12 @@ data "aws_iam_policy_document" "ssm_for_lambda" {
     resources = [aws_ssm_parameter.this.arn]
   }
 }
+
+data "aws_iam_policy_document" "sns_for_lambda" {
+  count = var.failure_notification_email != "" ? 1 : 0
+  statement {
+    effect    = "Allow"
+    actions   = ["sns:Publish"]
+    resources = [aws_sns_topic.this[0].arn]
+  }
+}
