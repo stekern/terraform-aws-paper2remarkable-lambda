@@ -11,7 +11,6 @@ A Lambda wrapper for paper2remarkable.
 import boto3
 import json
 import os
-import sys
 import logging
 import subprocess
 
@@ -80,7 +79,6 @@ devicetoken: {rmapi_config['rmapi_device_token']}
         else:
             failures[file] = out
             logger.warn("paper2remarkable command had non-zero exit")
-    status_code = 200 if len(successes) == len(payload["inputs"]) else 500
 
     # Publish message to SNS on failures
     if len(failures) and os.environ.get("SNS_TOPIC_ARN", None):
@@ -105,5 +103,6 @@ devicetoken: {rmapi_config['rmapi_device_token']}
             Message="\n\n".join(messages),
         )
 
+    status_code = 200 if len(failures) == 0 else 500
     response = {"statusCode": status_code}
     return response
