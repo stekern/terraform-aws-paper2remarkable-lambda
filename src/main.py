@@ -18,6 +18,15 @@ import subprocess
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 
+# Avoid re-initializing clients and resources across executions
+ssm = boto3.client("ssm")
+if os.environ.get("SNS_TOPIC_ARN", None):
+    sns = boto3.resource("sns")
+    sns_topic = sns.Topic(os.environ["SNS_TOPIC_ARN"])
+else:
+    sns_topic = None
+
+
 def timeout_handler(signal_number, stack_frame):
     """Raise exception if we are close to Lambda timeout limit"""
     logger.warn("Lambda is about to time out")
@@ -35,7 +44,6 @@ def lambda_handler(event, context):
 
     # Check if the invocation comes from API Gateway or not
     payload = json.loads(event["body"]) if "body" in event else event
-    ssm = boto3.client("ssm")
     decrypted = ssm.get_parameter(Name=ssm_parameter_name, WithDecryption=True)
     rmapi_config = json.loads(decrypted["Parameter"]["Value"])
     if not all(
@@ -91,9 +99,7 @@ devicetoken: {rmapi_config['rmapi_device_token']}
             logger.warn("paper2remarkable command had non-zero exit")
 
     # Publish message to SNS on failures
-    if len(failures) and os.environ.get("SNS_TOPIC_ARN", None):
-        sns = boto3.resource("sns")
-        sns_topic = sns.Topic(os.environ["SNS_TOPIC_ARN"])
+    if len(failures) and sns_topic:
         messages = [
             "\n".join(
                 [
