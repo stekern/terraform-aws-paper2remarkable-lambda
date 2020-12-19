@@ -12,13 +12,23 @@ import boto3
 import json
 import os
 import logging
+import signal
 import subprocess
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 
+def timeout_handler(signal_number, stack_frame):
+    """Raise exception if we are close to Lambda timeout limit"""
+    logger.warn("Lambda is about to time out")
+    raise Exception("Time exceeded")
+
+
+signal.signal(signal.SIGALRM, timeout_handler)
+
 
 def lambda_handler(event, context):
+    signal.alarm((context.get_remaining_time_in_millis() // 1000) - 2)
     logger.debug("Lambda triggered with event '%s'", event)
 
     ssm_parameter_name = os.environ["SSM_PARAMETER_NAME"]
