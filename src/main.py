@@ -30,6 +30,11 @@ else:
 def timeout_handler(signal_number, stack_frame):
     """Raise exception if we are close to Lambda timeout limit"""
     logger.warn("Lambda is about to time out")
+    if sns_topic:
+        sns_topic.publish(
+            Subject=f"{os.environ.get('AWS_LAMBDA_FUNCTION_NAME', 'paper2remarkable-lambda')} timed out ⏰",
+            Message="The Lambda function timed out",
+        )
     raise Exception("Time exceeded")
 
 
