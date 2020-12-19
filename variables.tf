@@ -10,7 +10,7 @@ variable "lambda_image_uri" {
 
 variable "lambda_timeout" {
   description = "The maximum number of seconds the Lambda is allowed to run."
-  default     = 120
+  default     = 180
 }
 
 variable "lambda_memory_size" {
