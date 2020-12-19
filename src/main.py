@@ -12,6 +12,7 @@ import boto3
 import json
 import os
 import logging
+import selectors
 import signal
 import subprocess
 
@@ -95,12 +96,31 @@ devicetoken: {rmapi_config['rmapi_device_token']}
         # directory to a known directory seems to fix it.
         logger.debug("Running paper2remarkable for file '%s'", file)
         os.chdir("/tmp")
-        out = subprocess.run(["p2r"] + args + [file], capture_output=True)
-        logger.debug("paper2remarkable output %s", out)
-        if out.returncode == 0:
-            successes[file] = out
+        proc = subprocess.Popen(
+            ["p2r"] + args + [file], stdout=subprocess.PIPE, stderr=subprocess.PIPE
+        )
+        sel = selectors.DefaultSelector()
+        sel.register(proc.stdout, selectors.EVENT_READ)
+        sel.register(proc.stderr, selectors.EVENT_READ)
+        output = {"stdout": "", "stderr": ""}
+        # Continuously log stdout and stderr while
+        # process is running
+        while proc.poll() is None:
+            for key, _ in sel.select():
+                data = key.fileobj.read1().decode()
+                if not data:
+                    continue
+                if key.fileobj is proc.stdout:
+                    output["stdout"] += data
+                    logger.debug(data)
+                else:
+                    output["stderr"] += data
+                    logger.error(data)
+        return_code = proc.returncode
+        if return_code == 0:
+            successes[file] = output
         else:
-            failures[file] = out
+            failures[file] = output
             logger.warn("paper2remarkable command had non-zero exit")
 
     # Publish message to SNS on failures
@@ -110,10 +130,10 @@ devicetoken: {rmapi_config['rmapi_device_token']}
                 [
                     f"Input: {file}",
                     "--- STDOUT ---",
-                    output.stdout.decode(),
+                    output["stdout"],
                     "",
                     "--- STDERR ---",
-                    output.stderr.decode(),
+                    output["stderr"],
                     "",
                 ]
             )
