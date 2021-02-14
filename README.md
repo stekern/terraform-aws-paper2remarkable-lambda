@@ -3,6 +3,8 @@ A Terraform module that creates an AWS Lambda function for calling [paper2remark
 
 The Lambda uses a custom Docker image (see [src/Dockerfile](src/Dockerfile)) which comes with paper2remarkable and its dependencies installed.
 
+You can opt-in to receive emails if paper2remarkable fails to process a given input, or if the Lambda function itself times out.
+
 ## Set up
 You need to first manually create the tokens for [rmapi](https://github.com/juruen/rmapi/), and then store these tokens in the parameter `/<prefix>/rmapi-config` in AWS Parameter Store using the following format:
 ```json
